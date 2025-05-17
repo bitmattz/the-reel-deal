@@ -1,126 +1,162 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:video_player/video_player.dart';
+import 'dart:math';
 
-void main() {
-  runApp(const MyApp());
-}
+void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'The Reel Deal Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'The Reel Deal'),
+      title: 'Pexels Reels',
+      home: VideoReelsPage(),
+      debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+class VideoReelsPage extends StatefulWidget {
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _VideoReelsPageState createState() => _VideoReelsPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-  String _flingDirection = 'None';
+class _VideoReelsPageState extends State<VideoReelsPage> {
+  final String apiKey = 'MY API KEY'; // TODO API KEY TO MAKE THE REQUEST
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  List<VideoPlayerController> controllers = [];
+  List<Map<String, dynamic>> videos = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchVideos(); //call function to fill the feed
   }
 
-  void _handleFling(DragEndDetails details) {
-    final velocity = details.velocity.pixelsPerSecond; // Catch de velocity of the action on screen
+  // Fetch videos from the Pexels API
+  Future<void> fetchVideos() async {
+    // TODO first download needs to have less videos to retrieve information faster
+    final response = await http.get(
+      Uri.parse('https://api.pexels.com/videos/search?query=vertical&per_page=10'),
+      headers: {
+        'Authorization': apiKey,
+      },
+    );
 
-    String direction = 'None';
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final List fetchedVideos = data['videos'];
 
-    if (velocity.dx > 500) {
-      direction = 'Right';
-    } else if (velocity.dx < -500) {
-      direction = 'Left';
-    } else if (velocity.dy > 500) {
-      direction = 'Down';
-    } else if (velocity.dy < -500) {
-      direction = 'Up';
+      // Iterate through each video and extract useful info
+      for (var video in fetchedVideos) {
+        final videoFiles = video['video_files'] as List;
+
+        // Prefer 1080p HD, fallback to first available
+        final selectedFile = videoFiles.firstWhere(
+          (file) => file['quality'] == 'hd' && file['height'] == 1080,
+          orElse: () => videoFiles.first,
+        );
+
+        final videoUrl = selectedFile['link'];
+        final thumbnail = video['image'];
+
+        // Save both URL and thumbnail
+        videos.add({
+          'url': videoUrl,
+          'thumbnail': thumbnail,
+        });
+
+        // Initialize video controller
+        final videoController = VideoPlayerController.networkUrl(videoUrl);
+        await videoController.initialize();
+        videoController.setLooping(true); // Same behaviour as reels
+        videoController.setVolume(1); // TODO do this implies that the device volume will be up too?
+        controllers.add(videoController);
+      }
+
+      setState(() {
+        isLoading = false;
+      });
+
+      // Start first video autoplay
+      controllers[0].play();
+    } else {
+      print('Error fetching videos: ${response.statusCode}');
+    }
+  }
+
+  @override
+  void dispose() {
+    // Dispose all controllers
+    for (var controller in controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Axis getCorrectDirection(){
+    //Function to get the correct direction to progress to the next video
+
+    List<Axis> directions = [Axis.horizontal, Axis.vertical];
+    Random secureRandom = Random.secure(); // Secure random generator
+    int randomIndex = secureRandom.nextInt(directions.length);
+    return directions[randomIndex];
+  }
+
+  bool isReverseDirection(){
+    // Function to get the reverse or normal direction of the progress to the next video
+
+    List<bool> reverseList = [true, false];
+    Random secureRandom = Random.secure(); // Certifying that the random is safe to use
+    int randomIndex = secureRandom.nextInt(reverseList.length);
+    return reverseList[randomIndex];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
-    setState(() {
-      _flingDirection = direction;
-    });
-  }  
-  @override
-Widget build(BuildContext context) {
-  return GestureDetector(
-    onPanEnd: _handleFling, // Captura o fling em toda a tela
-    child: Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('Você fez um fling na direção:'),
-            Text(
-              _flingDirection,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 40),
-            const Text('Você apertou o botão este número de vezes:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
-    ),
-  );
-}
+    return Scaffold(
+      body: PageView.builder(
+        scrollDirection: getCorrectDirection(),
+        reverse: isReverseDirection(),
+        itemCount: videos.length,
+        onPageChanged: (index) {
+          // Pause all videos and play the current one
+          // TODO remove videos already seen in the List
+          for (var controller in controllers) {
+            controller.pause();
+          }
+          controllers[index].play();
+        },
+        itemBuilder: (context, index) {
+          final controller = controllers[index];
+          final thumbnailUrl = videos[index]['thumbnail'];
 
+          return Container(
+            color: Colors.black,
+            child: Center(
+              child: controller.value.isInitialized
+                  ? AspectRatio(
+                      aspectRatio: controller.value.aspectRatio,
+                      child: VideoPlayer(controller),
+                    )
+                  : Image.network(
+                      thumbnailUrl,
+                      fit: BoxFit.cover,
+                      height: double.infinity,
+                      width: double.infinity,
+                    ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
