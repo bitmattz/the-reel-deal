@@ -5,7 +5,7 @@ import 'package:video_player/video_player.dart';
 import 'dart:math';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() => runApp(MyApp());
+
 Future main() async {
   await dotenv.load(fileName: ".env");
   runApp(MyApp());
@@ -74,7 +74,7 @@ class _VideoReelsPageState extends State<VideoReelsPage> {
         });
 
         // Initialize video controller
-        final videoController = VideoPlayerController.networkUrl(videoUrl);
+        final videoController = VideoPlayerController.network(videoUrl);
         await videoController.initialize();
         videoController.setLooping(true); // Same behaviour as reels
         videoController.setVolume(1); // TODO do this implies that the device volume will be up too?
@@ -129,8 +129,10 @@ class _VideoReelsPageState extends State<VideoReelsPage> {
 
     return Scaffold(
       body: PageView.builder(
-        scrollDirection: getCorrectDirection(),
-        reverse: isReverseDirection(),
+        // scrollDirection: getCorrectDirection(),
+        scrollDirection: Axis.vertical,
+        // reverse: isReverseDirection(),
+        reverse: false,
         itemCount: videos.length,
         onPageChanged: (index) {
           // Pause all videos and play the current one
