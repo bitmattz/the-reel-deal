@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:video_player/video_player.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() => runApp(MyApp());
+Future main() async {
+  await dotenv.load(fileName: ".env");
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override
@@ -22,7 +26,7 @@ class VideoReelsPage extends StatefulWidget {
 }
 
 class _VideoReelsPageState extends State<VideoReelsPage> {
-  final String apiKey = 'MY API KEY'; // TODO API KEY TO MAKE THE REQUEST
+  String get apiKey => dotenv.env['API_KEY'] ?? 'empty_key';
 
   List<VideoPlayerController> controllers = [];
   List<Map<String, dynamic>> videos = [];
