@@ -5,6 +5,10 @@ import 'package:video_player/video_player.dart';
 import 'dart:math';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:the_reel_deal_test/services/sound_service.dart';
+import 'package:vibration/vibration.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
+ 
 
 const String left = 'left';
 const String right = 'right';
@@ -49,11 +53,66 @@ class VideoReelsPageState extends State<VideoReelsPage> {
   int _fetchPage = 1;                                   // starting value for the page
   late PageController _pageController;
 
+      void triggerSpamAlert() async {
+    // Vibrate if possible
+    bool hasVibrator = await Vibration.hasVibrator() ?? false;
+    if (hasVibrator) {
+      Vibration.vibrate(pattern: [0, 500, 250, 500, 250, 500, 250, 800]);
+    }
+
+    int randomNumber = Random().nextInt(3) + 1;
+    String audioFile = 'sounds/miss/never-gonna-give-you-up-rickroll.mp3'; // default value
+    String gifFile = 'assets/sounds/gif/rickroll.gif'; // default value
+
+    switch (randomNumber) {
+      case 1:
+        audioFile = 'sounds/miss/never-gonna-give-you-up-rickroll.mp3';
+        gifFile = 'assets/sounds/gif/rickroll.gif';
+        break;
+      case 2:
+        audioFile = 'sounds/miss/cat-laughing-at-you.mp3';
+        gifFile = 'assets/sounds/gif/orange-cat-laughing.gif';
+        break;
+      case 3:
+        audioFile = 'sounds/miss/screaming-beaver.mp3';
+        gifFile = 'assets/sounds/gif/animal-beaver.gif';
+        break;
+    }
+
+    _soundService.playSound(audioFile);// Play MP3 from assets
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return AlertDialog(
+          title: Text('Ruim demais! Seloko!'),
+            content: Container(
+            width: double.infinity,
+            height: 200,
+            child: Image.asset(gifFile, fit: BoxFit.contain),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {// stop the audio when dialog closes
+                Navigator.of(context).pop();
+              },
+              child: Text("Procastinar mais..."),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _playVideo(int index) async {
     if (index >= controllers.length) return;
     
     try {
       final controller = controllers[index];
+      if(index > 0 ){
+        controllers[index-1].dispose();
+      }
       if (!controller.value.isInitialized) {
         await controller.initialize();
       }
@@ -105,7 +164,7 @@ class VideoReelsPageState extends State<VideoReelsPage> {
 
       setState(() {
         _fetchPage++;
-        fetchVideos(amount: 3);
+        fetchVideos(amount: 1);
       });
       
       
@@ -135,11 +194,30 @@ class VideoReelsPageState extends State<VideoReelsPage> {
         else{
           _soundService.playSound('sounds/streak/combo${streakMax}.ogg');
         }
+        Fluttertoast.showToast(
+          msg: "Score: " + _streak.toString(),
+          toastLength: Toast.LENGTH_SHORT, // ou Toast.LENGTH_LONG
+          gravity: ToastGravity.BOTTOM,    // ou TOP, CENTER
+          timeInSecForIosWeb: 1,
+          backgroundColor: const Color.fromARGB(221, 26, 237, 40),
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
       }); 
     }
     else{
       _streak = 0;
-      _soundService.playSound('sounds/miss/wrong_swipe.ogg');
+      // _soundService.playSound('sounds/miss/wrong_swipe.ogg');
+                    Fluttertoast.showToast(
+          msg: "Score: " + _streak.toString(),
+          toastLength: Toast.LENGTH_SHORT, // ou Toast.LENGTH_LONG
+          gravity: ToastGravity.BOTTOM,    // ou TOP, CENTER
+          timeInSecForIosWeb: 1,
+          backgroundColor: const Color.fromARGB(221, 237, 26, 26),
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      triggerSpamAlert();
     }
   }
 
@@ -156,7 +234,7 @@ class VideoReelsPageState extends State<VideoReelsPage> {
 
       setState(() {
         _fetchPage++;
-        fetchVideos(amount: 3);
+        fetchVideos(amount: 1);
       });
       
       
@@ -186,11 +264,30 @@ class VideoReelsPageState extends State<VideoReelsPage> {
         else{
           _soundService.playSound('sounds/streak/combo${streakMax}.ogg');
         }
+        Fluttertoast.showToast(
+          msg: "Score: " + _streak.toString(),
+          toastLength: Toast.LENGTH_SHORT, // ou Toast.LENGTH_LONG
+          gravity: ToastGravity.BOTTOM,    // ou TOP, CENTER
+          timeInSecForIosWeb: 1,
+          backgroundColor: const Color.fromARGB(221, 26, 237, 40),
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
       });
     }
     else{
       _streak = 0;
-      _soundService.playSound('sounds/miss/wrong_swipe.ogg');
+              Fluttertoast.showToast(
+          msg: "Score: " + _streak.toString(),
+          toastLength: Toast.LENGTH_SHORT, // ou Toast.LENGTH_LONG
+          gravity: ToastGravity.BOTTOM,    // ou TOP, CENTER
+          timeInSecForIosWeb: 1,
+          backgroundColor: const Color.fromARGB(221, 237, 26, 26),
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
+      // _soundService.playSound('sounds/miss/wrong_swipe.ogg');
+      triggerSpamAlert();
     }
   }
 
@@ -200,7 +297,7 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     _correctDirection = generateDirection();
     _isReverse = generateDirectionOrientation();
     _pageController = PageController(viewportFraction: 1.0); //ensure video fill the whole viewport
-    fetchVideos(amount:3);
+    fetchVideos(amount:5);
   }
 
   // Fetch videos from the Pexels API
