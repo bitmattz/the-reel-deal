@@ -38,18 +38,19 @@ class VideoReelsPageState extends State<VideoReelsPage> {
   List<VideoPlayerController> controllers = [];
   List<Map<String, dynamic>> videos = [];
   bool isLoading = true;
-  Axis _correctDirection = Axis.horizontal; //default orientation values
-  bool _isReverse = false; // default value for revertion 
-  bool _isAnimating = false; // flat to identify if the transition is happening
-  // bool _isScrollingEnabled = false; // flag to enable and disable scroll during page transition
-  int _currentPage = 0; //starting value for the page
+  late Axis _correctDirection = Axis.vertical;         //default orientation values
+  late bool _isReverse = false;                        // default value for revertion 
+  bool _isAnimating = false;                      // flat to identify if the transition is happening
+  int _currentPage = 0;                           // starting value for the page
   late PageController _pageController;
 
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(viewportFraction: 1.0); //ensure peeking is not able
+    _correctDirection = generateDirection();
+    _isReverse = generateDirectionOrientation();
+    _pageController = PageController(viewportFraction: 1.0); //ensure video fill the whole viewport
 
     _pageController.addListener((){
       if (_pageController.position.isScrollingNotifier.value){
@@ -68,21 +69,21 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     fetchVideos(); //call function to fill the feed
   }
 
-  Axis getCorrectDirection(){
-    //Function to get the correct direction to progress to the next video
-
+  // Function to generate a direction according to the availables Axis
+  Axis generateDirection(){
     List<Axis> directions = [Axis.horizontal, Axis.vertical];
     Random secureRandom = Random.secure(); // Secure random generator
     int randomIndex = secureRandom.nextInt(directions.length);
+
     return directions[randomIndex];
   }
 
-  bool isReverseDirection(){
-    // Function to get the reverse or normal direction of the progress to the next video
-
+  // Function to get the reverse or normal direction of the progress to the next video
+  bool generateDirectionOrientation(){
     List<bool> reverseList = [true, false];
     Random secureRandom = Random.secure(); // Certifying that the random is safe to use
     int randomIndex = secureRandom.nextInt(reverseList.length);
+
     return reverseList[randomIndex];
   }
 
@@ -139,8 +140,10 @@ class VideoReelsPageState extends State<VideoReelsPage> {
   }
 
   void _onPageChanged(int index){
+    
     // if animation is on progress, nothing is made
     if (_isAnimating) return;
+
     // Pause all videos and play the current one
     // TODO remove videos already seen in the List
     for (var controller in controllers) {
@@ -149,8 +152,8 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     controllers[index].play(); // Start the current video
   }
   
+
   void _onHorizontalDrag(DragEndDetails dragDetails){
-    print('on horizontal movement triggered');
     String inputDirection = getUserDragDirection('Horizontal', dragDetails);
     String correctDirection = getPageCorrectDirection();
 
@@ -158,15 +161,22 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     print('page direction ${correctDirection}');
 
     if (inputDirection == correctDirection){
-      print('CORRECT DIRECTION');
-      _pageController.nextPage(duration:Duration(seconds: 1), curve: Curves.ease);
+      _pageController.nextPage(duration:Duration(milliseconds: 500), curve: Curves.ease).then((onValue) {
+        setState(() {
+          _correctDirection = generateDirection();
+          _isReverse = generateDirectionOrientation();
+        });
+      });
+      //TODO trigger the streak context event (from right choice)
     }
     else{
       print('WRONG DIRECTION');
+      //TODO trigger the wrong context event!
     }
       
 
   }
+
 
   void _onVerticalDrag(DragEndDetails dragDetails){
     print('on vertical movement triggered');
@@ -174,7 +184,12 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     String correctDirection = getPageCorrectDirection();
 
     if (inputDirection == correctDirection){
-      _pageController.nextPage(duration: Duration(seconds: 1), curve: Curves.ease);
+      _pageController.nextPage(duration: Duration(milliseconds: 500), curve: Curves.ease).then((onValue) {
+        setState(() {
+          _correctDirection = generateDirection();
+          _isReverse = generateDirectionOrientation();
+        });
+      });
       //TODO trigger the streak context event (from right choice)
     }
     else{
@@ -183,7 +198,7 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     }
   }
 
-  //this function retrieves the page direction setted for the current Page in display
+  //Retrieves the correct direction for the current Page in display
   String getPageCorrectDirection(){
 
     late String direction;
@@ -208,17 +223,12 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     return direction;
   }
 
-  //function used to retrive the user drag direction
+  //Retrives the inputed user drag direction
   String getUserDragDirection(String inputDirection, DragEndDetails dragDetails){
 
     late String userInputDirection;
 
-    if (inputDirection == 'Vertical'){
-
-    }
-
     if(inputDirection == 'Horizontal'){
-      // movement to the left
       if (dragDetails.primaryVelocity! < 0) {
         userInputDirection = left;
       }
@@ -267,7 +277,7 @@ class VideoReelsPageState extends State<VideoReelsPage> {
           scrollDirection: _correctDirection,
           reverse: _isReverse,
           itemCount: videos.length,
-          physics: NeverScrollableScrollPhysics(),
+          physics: NeverScrollableScrollPhysics(), //ensure no "peeking" is enabled
           onPageChanged: _onPageChanged,
           itemBuilder: (context, index) {
             final controller = controllers[index];
