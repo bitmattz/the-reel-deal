@@ -1,16 +1,28 @@
 # the_reel_deal_test
 
-A new Flutter project.
+Your app to make doomscrooling more addicting to you, and tell you how much of a procastinator you are! :)
+
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+Follow these steps to run the project on your computer:
 
-A few resources to get you started if this is your first Flutter project:
+1. **Clone the repository**
+    ```bash
+    git clone <repository-url>
+    cd the_reel_deal_test
+    ```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+2. **Install dependencies**
+    ```bash
+    flutter pub get
+    ```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+3. **Run the app**
+    ```bash
+    flutter run
+    ```
+
+> Make sure you have [Flutter](https://flutter.dev/docs/get-started/install) installed and set up on your machine and a Android device to test this application.
+
+> Create a .env file with a variable called "API_KEY" to connect with the API.
