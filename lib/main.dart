@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Pexels Reels',
+      title: 'The Reel Deal',
       home: VideoReelsPage(),
       debugShowCheckedModeBanner: false,
     );
@@ -41,11 +41,12 @@ class VideoReelsPageState extends State<VideoReelsPage> {
   List<VideoPlayerController> controllers = [];
   List<Map<String, dynamic>> videos = [];
   bool isLoading = true;
-  late Axis _correctDirection = Axis.vertical;         //default orientation values
-  late bool _isReverse = false;                        // default value for revertion 
-  bool _isAnimating = false;                      // flat to identify if the transition is happening
-  int _currentPage = 0;                           // starting value for the page
-  int _streak = 1;                                // starting value for the streak
+  late Axis _correctDirection = Axis.vertical;          //default orientation values
+  late bool _isReverse = false;                         // default value for revertion 
+  bool _isAnimating = false;                            // flat to identify if the transition is happening
+  int _currentPage = 0;                                 // starting value for the page
+  int _streak = 1;                                      // starting value for the streak
+  int _fetchPage = 1;                                   // starting value for the page
   late PageController _pageController;
 
   Future<void> _playVideo(int index) async {
@@ -101,6 +102,12 @@ class VideoReelsPageState extends State<VideoReelsPage> {
 
     if (inputDirection == correctDirection){
       _isAnimating = true;
+
+      setState(() {
+        _fetchPage++;
+        fetchVideos(amount: 3);
+      });
+      
       
       // Pause current video
       _pauseVideo(_currentPage);
@@ -146,6 +153,12 @@ class VideoReelsPageState extends State<VideoReelsPage> {
 
     if (inputDirection == correctDirection){
       _isAnimating = true;
+
+      setState(() {
+        _fetchPage++;
+        fetchVideos(amount: 3);
+      });
+      
       
       // Pause current video
       _pauseVideo(_currentPage);
@@ -187,13 +200,13 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     _correctDirection = generateDirection();
     _isReverse = generateDirectionOrientation();
     _pageController = PageController(viewportFraction: 1.0); //ensure video fill the whole viewport
-    fetchVideos();
+    fetchVideos(amount:3);
   }
 
   // Fetch videos from the Pexels API
-  Future<void> fetchVideos() async {
+  Future<void> fetchVideos({int amount = 5}) async {
     final response = await http.get(
-      Uri.parse('https://api.pexels.com/videos/search?query=vertical&per_page=5'),
+      Uri.parse('https://api.pexels.com/videos/search?query=animals&orientation=portrait&per_page=5&size=small&page=${_fetchPage}'),
       headers: {
         'Authorization': apiKey,
       },
