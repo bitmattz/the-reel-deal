@@ -48,6 +48,138 @@ class VideoReelsPageState extends State<VideoReelsPage> {
   int _streak = 1;                                // starting value for the streak
   late PageController _pageController;
 
+  Future<void> _playVideo(int index) async {
+    if (index >= controllers.length) return;
+    
+    try {
+      final controller = controllers[index];
+      if (!controller.value.isInitialized) {
+        await controller.initialize();
+      }
+      
+      await controller.setLooping(true);
+      await controller.setVolume(1.0);
+      
+      await controller.play();
+      
+      // Add a listener to monitor the video state
+      controller.addListener(() {
+        if (!controller.value.isPlaying && mounted) {
+          // Only restart if we're not in a transition
+          if (!_isAnimating) {
+            controller.play();
+          }
+        }
+      });
+      
+    } catch (e) {
+      print('Error playing video at index $index: $e');
+    }
+  }
+
+  Future<void> _pauseVideo(int index) async {
+    if (index >= controllers.length) return;
+    
+    try {
+      final controller = controllers[index];
+      
+      // Remove any existing listeners before pausing
+      controller.removeListener(() {});
+      await controller.pause();
+    } catch (e) {
+      print('Error pausing video at index $index: $e');
+    }
+  }
+
+  void _onHorizontalDrag(DragEndDetails dragDetails){
+    if (_isAnimating) {
+      return;
+    }
+    
+    String inputDirection = getUserDragDirection('Horizontal', dragDetails);
+    String correctDirection = getPageCorrectDirection();
+
+    if (inputDirection == correctDirection){
+      _isAnimating = true;
+      
+      // Pause current video
+      _pauseVideo(_currentPage);
+      
+      _pageController.nextPage(
+        duration: Duration(milliseconds: 500),
+        curve: Curves.ease,
+      ).then((_) {
+        setState(() {
+          _currentPage++;
+          _correctDirection = generateDirection();
+          _isReverse = generateDirectionOrientation();
+          _streak++;
+          _isAnimating = false;
+        });
+        
+        // Add a small delay before playing the new video
+        Future.delayed(Duration(milliseconds: 100), () {
+          _playVideo(_currentPage);
+        });
+        
+        if (_streak <= streakMax){
+          _soundService.playSound('sounds/streak/combo${_streak}.ogg');
+        }
+        else{
+          _soundService.playSound('sounds/streak/combo${streakMax}.ogg');
+        }
+      }); 
+    }
+    else{
+      _streak = 0;
+      _soundService.playSound('sounds/miss/wrong_swipe.ogg');
+    }
+  }
+
+  void _onVerticalDrag(DragEndDetails dragDetails){
+    if (_isAnimating) {
+      return;
+    }
+    
+    String inputDirection = getUserDragDirection('Vertical', dragDetails);
+    String correctDirection = getPageCorrectDirection();
+
+    if (inputDirection == correctDirection){
+      _isAnimating = true;
+      
+      // Pause current video
+      _pauseVideo(_currentPage);
+      
+      _pageController.nextPage(
+        duration: Duration(milliseconds: 500),
+        curve: Curves.ease,
+      ).then((_) {
+        setState(() {
+          _currentPage++;
+          _correctDirection = generateDirection();
+          _isReverse = generateDirectionOrientation();
+          _streak++;
+          _isAnimating = false;
+        });
+        
+        // Add a small delay before playing the new video
+        Future.delayed(Duration(milliseconds: 100), () {
+          _playVideo(_currentPage);
+        });
+        
+        if (_streak <= streakMax){
+          _soundService.playSound('sounds/streak/combo${_streak}.ogg');
+        }
+        else{
+          _soundService.playSound('sounds/streak/combo${streakMax}.ogg');
+        }
+      });
+    }
+    else{
+      _streak = 0;
+      _soundService.playSound('sounds/miss/wrong_swipe.ogg');
+    }
+  }
 
   @override
   void initState() {
@@ -55,45 +187,11 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     _correctDirection = generateDirection();
     _isReverse = generateDirectionOrientation();
     _pageController = PageController(viewportFraction: 1.0); //ensure video fill the whole viewport
-
-    _pageController.addListener((){
-      if (_pageController.position.isScrollingNotifier.value){
-        setState(() {
-          _isAnimating = true;  
-        });
-      }
-      else {
-        setState(() {
-          _isAnimating = false;
-        });
-      }
-    });
-
-
-    fetchVideos(); //call function to fill the feed
-  }
-
-  // Function to generate a direction according to the availables Axis
-  Axis generateDirection(){
-    List<Axis> directions = [Axis.horizontal, Axis.vertical];
-    Random secureRandom = Random.secure(); // Secure random generator
-    int randomIndex = secureRandom.nextInt(directions.length);
-
-    return directions[randomIndex];
-  }
-
-  // Function to get the reverse or normal direction of the progress to the next video
-  bool generateDirectionOrientation(){
-    List<bool> reverseList = [true, false];
-    Random secureRandom = Random.secure(); // Certifying that the random is safe to use
-    int randomIndex = secureRandom.nextInt(reverseList.length);
-
-    return reverseList[randomIndex];
+    fetchVideos();
   }
 
   // Fetch videos from the Pexels API
   Future<void> fetchVideos() async {
-    // TODO first download needs to have less videos to retrieve information faster
     final response = await http.get(
       Uri.parse('https://api.pexels.com/videos/search?query=vertical&per_page=5'),
       headers: {
@@ -128,7 +226,6 @@ class VideoReelsPageState extends State<VideoReelsPage> {
         final videoController = VideoPlayerController.network(videoUrl);
         await videoController.initialize();
         videoController.setLooping(true); // Same behaviour as reels
-        videoController.setVolume(1); // TODO do this implies that the device volume will be up too?
         controllers.add(videoController);
       }
 
@@ -137,75 +234,31 @@ class VideoReelsPageState extends State<VideoReelsPage> {
       });
 
       // Start first video autoplay
-      controllers[0].play();
+      if (controllers.isNotEmpty) {
+        _playVideo(0);
+      }
+
     } else {
       print('Error fetching videos: ${response.statusCode}');
     }
   }
 
-  void _onPageChanged(int index){
-    
-    // if animation is on progress, nothing is made
-    if (_isAnimating) return;
+  // Function to generate a direction according to the availables Axis
+  Axis generateDirection(){
+    List<Axis> directions = [Axis.horizontal, Axis.vertical];
+    Random secureRandom = Random.secure(); // Secure random generator
+    int randomIndex = secureRandom.nextInt(directions.length);
 
-    // Pause all videos and play the current one
-    // TODO remove videos already seen in the List
-    for (var controller in controllers) {
-      controller.pause();
-    }
-    controllers[index].play(); // Start the current video
-  }
-  
-
-  void _onHorizontalDrag(DragEndDetails dragDetails){
-    String inputDirection = getUserDragDirection('Horizontal', dragDetails);
-    String correctDirection = getPageCorrectDirection();
-
-    if (inputDirection == correctDirection){
-      _pageController.nextPage(duration:Duration(milliseconds: 500), curve: Curves.ease).then((onValue) {
-        setState(() {
-          _correctDirection = generateDirection();
-          _isReverse = generateDirectionOrientation();
-          _streak++;
-        });
-        if (_streak <= streakMax){
-          _soundService.playSound('sounds/streak/combo${_streak}.ogg');
-        }
-        else{
-          _soundService.playSound('sounds/streak/combo${streakMax}.ogg');
-        }
-      }); 
-    }
-    else{
-      _streak = 0;  //reset the streak
-      _soundService.playSound('sounds/miss/wrong_swipe.ogg');
-    }
+    return directions[randomIndex];
   }
 
+  // Function to get the reverse or normal direction of the progress to the next video
+  bool generateDirectionOrientation(){
+    List<bool> reverseList = [true, false];
+    Random secureRandom = Random.secure(); // Certifying that the random is safe to use
+    int randomIndex = secureRandom.nextInt(reverseList.length);
 
-  void _onVerticalDrag(DragEndDetails dragDetails){
-    String inputDirection = getUserDragDirection('Vertical', dragDetails);
-    String correctDirection = getPageCorrectDirection();
-
-    if (inputDirection == correctDirection){
-      _pageController.nextPage(duration: Duration(milliseconds: 500), curve: Curves.ease).then((onValue) {
-        setState(() {
-          _correctDirection = generateDirection();
-          _isReverse = generateDirectionOrientation();
-          _streak++;
-        });
-        if (_streak <= streakMax){
-          _soundService.playSound('sounds/streak/combo${_streak }.ogg');
-        }
-        else{
-          _soundService.playSound('sounds/streak/combo${streakMax}.ogg');
-        }
-      });
-    }
-    else{
-      _streak = 0;  //reset the streak
-      _soundService.playSound('sounds/miss/wrong_swipe.ogg');
-    }
+    return reverseList[randomIndex];
   }
 
   //Retrieves the correct direction for the current Page in display
@@ -289,7 +342,6 @@ class VideoReelsPageState extends State<VideoReelsPage> {
           reverse: _isReverse,
           itemCount: videos.length,
           physics: NeverScrollableScrollPhysics(), //ensure no "peeking" is enabled
-          onPageChanged: _onPageChanged,
           itemBuilder: (context, index) {
             final controller = controllers[index];
             final thumbnailUrl = videos[index]['thumbnail'];
