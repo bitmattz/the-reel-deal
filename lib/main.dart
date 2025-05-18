@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:video_player/video_player.dart';
 import 'dart:math';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:vibration/vibration.dart';
+import 'package:audioplayers/audioplayers.dart';
+
 
 const String left = 'left';
 const String right = 'right';
@@ -43,6 +46,63 @@ class VideoReelsPageState extends State<VideoReelsPage> {
   bool _isAnimating = false;                      // flat to identify if the transition is happening
   int _currentPage = 0;                           // starting value for the page
   late PageController _pageController;
+
+    void triggerSpamAlert() async {
+    // Vibrate if possible
+    bool hasVibrator = await Vibration.hasVibrator() ?? false;
+    if (hasVibrator) {
+      Vibration.vibrate(pattern: [0, 500, 250, 500, 250, 500, 250, 800]);
+    }
+
+    int randomNumber = Random().nextInt(3) + 1;
+    String audioFile = 'mp3/rickroll.mp3'; // default value
+    String gifFile = 'assets/gif/rick-astley.gif'; // default value
+
+    switch (randomNumber) {
+      case 1:
+        audioFile = 'mp3/rickroll.mp3';
+        gifFile = 'assets/gif/rick-astley.gif';
+        break;
+      case 2:
+        audioFile = 'mp3/cat-laughing-at-you.mp3';
+        gifFile = 'assets/gif/orange-cat-laughing.gif';
+        break;
+      case 3:
+        audioFile = 'mp3/screaming-beaver.mp3';
+        gifFile = 'assets/gif/animal-beaver.gif';
+        break;
+    }
+
+    late AudioPlayer player = AudioPlayer();
+    player = AudioPlayer();
+    player.setReleaseMode(ReleaseMode.stop);
+    player.play(AssetSource(audioFile)); // Play MP3 from assets
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return AlertDialog(
+          title: Text('WRONG DIRECTION!'),
+            content: Container(
+            width: double.infinity,
+            height: 200,
+            child: Image.asset(gifFile, fit: BoxFit.contain),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                player.stop(); 
+                player.dispose(); // stop the audio when dialog closes
+                Navigator.of(context).pop();
+              },
+              child: Text("Ok, I'll pay more attention..."),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
 
   @override
@@ -171,6 +231,7 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     }
     else{
       print('WRONG DIRECTION');
+      triggerSpamAlert();
       //TODO trigger the wrong context event!
     }
       
@@ -194,6 +255,7 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     }
     else{
       print('WRONG DIRECTION');
+      triggerSpamAlert();
       //TODO trigger the wrong context event!
     }
   }
