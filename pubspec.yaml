@@ -41,6 +41,9 @@ dependencies:
   video_player: ^2.9.5
   flutter_dotenv: ^5.1.0
   audioplayers: ^5.2.1
+  vibration: ^2.0.0
+  fluttertoast: ^8.2.2
+
 
   # flick_video_player: <latest_version>
   # video_player: <latest_version>
@@ -77,6 +80,7 @@ flutter:
     - assets/sounds/
     - assets/sounds/miss/
     - assets/sounds/streak/
+    - assets/sounds/gif/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
