@@ -4,11 +4,13 @@ import 'dart:convert';
 import 'package:video_player/video_player.dart';
 import 'dart:math';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:the_reel_deal_test/services/sound_service.dart';
 
 const String left = 'left';
 const String right = 'right';
 const String up = 'up';
 const String down = 'down';
+const int streakMax = 8;
 
 
 Future main() async {
@@ -34,6 +36,7 @@ class VideoReelsPage extends StatefulWidget {
 
 class VideoReelsPageState extends State<VideoReelsPage> {
   String get apiKey => dotenv.env['API_KEY'] ?? 'empty_key';
+  final SoundService _soundService = SoundService();
 
   List<VideoPlayerController> controllers = [];
   List<Map<String, dynamic>> videos = [];
@@ -42,6 +45,7 @@ class VideoReelsPageState extends State<VideoReelsPage> {
   late bool _isReverse = false;                        // default value for revertion 
   bool _isAnimating = false;                      // flat to identify if the transition is happening
   int _currentPage = 0;                           // starting value for the page
+  int _streak = 1;                                // starting value for the streak
   late PageController _pageController;
 
 
@@ -157,29 +161,29 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     String inputDirection = getUserDragDirection('Horizontal', dragDetails);
     String correctDirection = getPageCorrectDirection();
 
-    print('user direction ${inputDirection}');
-    print('page direction ${correctDirection}');
-
     if (inputDirection == correctDirection){
       _pageController.nextPage(duration:Duration(milliseconds: 500), curve: Curves.ease).then((onValue) {
         setState(() {
           _correctDirection = generateDirection();
           _isReverse = generateDirectionOrientation();
+          _streak++;
         });
-      });
-      //TODO trigger the streak context event (from right choice)
+        if (_streak <= streakMax){
+          _soundService.playSound('sounds/streak/combo${_streak}.ogg');
+        }
+        else{
+          _soundService.playSound('sounds/streak/combo${streakMax}.ogg');
+        }
+      }); 
     }
     else{
-      print('WRONG DIRECTION');
-      //TODO trigger the wrong context event!
+      _streak = 0;  //reset the streak
+      _soundService.playSound('sounds/miss/wrong_swipe.ogg');
     }
-      
-
   }
 
 
   void _onVerticalDrag(DragEndDetails dragDetails){
-    print('on vertical movement triggered');
     String inputDirection = getUserDragDirection('Vertical', dragDetails);
     String correctDirection = getPageCorrectDirection();
 
@@ -188,13 +192,19 @@ class VideoReelsPageState extends State<VideoReelsPage> {
         setState(() {
           _correctDirection = generateDirection();
           _isReverse = generateDirectionOrientation();
+          _streak++;
         });
+        if (_streak <= streakMax){
+          _soundService.playSound('sounds/streak/combo${_streak }.ogg');
+        }
+        else{
+          _soundService.playSound('sounds/streak/combo${streakMax}.ogg');
+        }
       });
-      //TODO trigger the streak context event (from right choice)
     }
     else{
-      print('WRONG DIRECTION');
-      //TODO trigger the wrong context event!
+      _streak = 0;  //reset the streak
+      _soundService.playSound('sounds/miss/wrong_swipe.ogg');
     }
   }
 
@@ -257,6 +267,7 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     for (var controller in controllers) {
       controller.dispose();
     }
+    _soundService.dispose();
     super.dispose();
   }
 
