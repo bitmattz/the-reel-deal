@@ -189,10 +189,10 @@ class VideoReelsPageState extends State<VideoReelsPage> {
     late String direction;
     if (_correctDirection == Axis.horizontal){
         if (_isReverse){
-          direction = left;
+          direction = right;
         }
         else{
-          direction = right;
+          direction = left;
         }
     }
 
