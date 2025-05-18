@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:video_player/video_player.dart';
+import 'dart:math';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+const String left = 'left';
+const String right = 'right';
+const String up = 'up';
+const String down = 'down';
+
 
 Future main() async {
   await dotenv.load(fileName: ".env");
@@ -22,27 +29,69 @@ class MyApp extends StatelessWidget {
 
 class VideoReelsPage extends StatefulWidget {
   @override
-  _VideoReelsPageState createState() => _VideoReelsPageState();
+  VideoReelsPageState createState() => VideoReelsPageState();
 }
 
-class _VideoReelsPageState extends State<VideoReelsPage> {
+class VideoReelsPageState extends State<VideoReelsPage> {
   String get apiKey => dotenv.env['API_KEY'] ?? 'empty_key';
 
   List<VideoPlayerController> controllers = [];
   List<Map<String, dynamic>> videos = [];
   bool isLoading = true;
+  late Axis _correctDirection = Axis.vertical;         //default orientation values
+  late bool _isReverse = false;                        // default value for revertion 
+  bool _isAnimating = false;                      // flat to identify if the transition is happening
+  int _currentPage = 0;                           // starting value for the page
+  late PageController _pageController;
+
 
   @override
   void initState() {
     super.initState();
+    _correctDirection = generateDirection();
+    _isReverse = generateDirectionOrientation();
+    _pageController = PageController(viewportFraction: 1.0); //ensure video fill the whole viewport
+
+    _pageController.addListener((){
+      if (_pageController.position.isScrollingNotifier.value){
+        setState(() {
+          _isAnimating = true;  
+        });
+      }
+      else {
+        setState(() {
+          _isAnimating = false;
+        });
+      }
+    });
+
+
     fetchVideos(); //call function to fill the feed
+  }
+
+  // Function to generate a direction according to the availables Axis
+  Axis generateDirection(){
+    List<Axis> directions = [Axis.horizontal, Axis.vertical];
+    Random secureRandom = Random.secure(); // Secure random generator
+    int randomIndex = secureRandom.nextInt(directions.length);
+
+    return directions[randomIndex];
+  }
+
+  // Function to get the reverse or normal direction of the progress to the next video
+  bool generateDirectionOrientation(){
+    List<bool> reverseList = [true, false];
+    Random secureRandom = Random.secure(); // Certifying that the random is safe to use
+    int randomIndex = secureRandom.nextInt(reverseList.length);
+
+    return reverseList[randomIndex];
   }
 
   // Fetch videos from the Pexels API
   Future<void> fetchVideos() async {
     // TODO first download needs to have less videos to retrieve information faster
     final response = await http.get(
-      Uri.parse('https://api.pexels.com/videos/search?query=vertical&per_page=10'),
+      Uri.parse('https://api.pexels.com/videos/search?query=vertical&per_page=5'),
       headers: {
         'Authorization': apiKey,
       },
@@ -69,16 +118,14 @@ class _VideoReelsPageState extends State<VideoReelsPage> {
         videos.add({
           'url': videoUrl,
           'thumbnail': thumbnail,
-          // generate right direction here maybe?
-          // correct_direction: 'up'
         });
 
         // Initialize video controller
-        final controller = VideoPlayerController.network(videoUrl);
-        await controller.initialize();
-        controller.setLooping(true);
-        controller.setVolume(0);
-        controllers.add(controller);
+        final videoController = VideoPlayerController.network(videoUrl);
+        await videoController.initialize();
+        videoController.setLooping(true); // Same behaviour as reels
+        videoController.setVolume(1); // TODO do this implies that the device volume will be up too?
+        controllers.add(videoController);
       }
 
       setState(() {
@@ -92,9 +139,121 @@ class _VideoReelsPageState extends State<VideoReelsPage> {
     }
   }
 
+  void _onPageChanged(int index){
+    
+    // if animation is on progress, nothing is made
+    if (_isAnimating) return;
+
+    // Pause all videos and play the current one
+    // TODO remove videos already seen in the List
+    for (var controller in controllers) {
+      controller.pause();
+    }
+    controllers[index].play(); // Start the current video
+  }
+  
+
+  void _onHorizontalDrag(DragEndDetails dragDetails){
+    String inputDirection = getUserDragDirection('Horizontal', dragDetails);
+    String correctDirection = getPageCorrectDirection();
+
+    print('user direction ${inputDirection}');
+    print('page direction ${correctDirection}');
+
+    if (inputDirection == correctDirection){
+      _pageController.nextPage(duration:Duration(milliseconds: 500), curve: Curves.ease).then((onValue) {
+        setState(() {
+          _correctDirection = generateDirection();
+          _isReverse = generateDirectionOrientation();
+        });
+      });
+      //TODO trigger the streak context event (from right choice)
+    }
+    else{
+      print('WRONG DIRECTION');
+      //TODO trigger the wrong context event!
+    }
+      
+
+  }
+
+
+  void _onVerticalDrag(DragEndDetails dragDetails){
+    print('on vertical movement triggered');
+    String inputDirection = getUserDragDirection('Vertical', dragDetails);
+    String correctDirection = getPageCorrectDirection();
+
+    if (inputDirection == correctDirection){
+      _pageController.nextPage(duration: Duration(milliseconds: 500), curve: Curves.ease).then((onValue) {
+        setState(() {
+          _correctDirection = generateDirection();
+          _isReverse = generateDirectionOrientation();
+        });
+      });
+      //TODO trigger the streak context event (from right choice)
+    }
+    else{
+      print('WRONG DIRECTION');
+      //TODO trigger the wrong context event!
+    }
+  }
+
+  //Retrieves the correct direction for the current Page in display
+  String getPageCorrectDirection(){
+
+    late String direction;
+    if (_correctDirection == Axis.horizontal){
+        if (_isReverse){
+          direction = right;
+        }
+        else{
+          direction = left;
+        }
+    }
+
+    else if (_correctDirection == Axis.vertical){
+        if (_isReverse){
+           direction = up; 
+        }
+        else{
+          direction = down;
+        }
+    }
+
+    return direction;
+  }
+
+  //Retrives the inputed user drag direction
+  String getUserDragDirection(String inputDirection, DragEndDetails dragDetails){
+
+    late String userInputDirection;
+
+    if(inputDirection == 'Horizontal'){
+      if (dragDetails.primaryVelocity! < 0) {
+        userInputDirection = left;
+      }
+      else{
+        userInputDirection = right;
+      }
+    }
+
+    else if(inputDirection == 'Vertical'){
+      if(dragDetails.primaryVelocity! < 0){
+        userInputDirection = down;
+      }
+      else{
+        userInputDirection = up;
+      }
+    }
+
+
+    return userInputDirection;
+  }
+
   @override
   void dispose() {
     // Dispose all controllers
+    _pageController.dispose();
     for (var controller in controllers) {
       controller.dispose();
     }
@@ -110,39 +269,38 @@ class _VideoReelsPageState extends State<VideoReelsPage> {
     }
 
     return Scaffold(
-      body: PageView.builder(
-        scrollDirection: Axis.vertical,
-        itemCount: videos.length,
-        onPageChanged: (index) {
-          // Pause all videos and play the current one
-          // TODO remove videos already seen in the List
-          for (var controller in controllers) {
-            controller.pause();
-          }
-          controllers[index].play();
-        },
-        itemBuilder: (context, index) {
-          final controller = controllers[index];
-          final thumbnailUrl = videos[index]['thumbnail'];
+      body: GestureDetector(
+        onVerticalDragEnd: _onVerticalDrag,
+        onHorizontalDragEnd: _onHorizontalDrag,
+        child:PageView.builder(
+          controller: _pageController,
+          scrollDirection: _correctDirection,
+          reverse: _isReverse,
+          itemCount: videos.length,
+          physics: NeverScrollableScrollPhysics(), //ensure no "peeking" is enabled
+          onPageChanged: _onPageChanged,
+          itemBuilder: (context, index) {
+            final controller = controllers[index];
+            final thumbnailUrl = videos[index]['thumbnail'];
 
-          return Container(
-            color: Colors.black,
-            child: Center(
-              child: controller.value.isInitialized
-                  ? AspectRatio(
-                      aspectRatio: controller.value.aspectRatio,
-                      child: VideoPlayer(controller),
-                    )
-                  : Image.network(
-                      thumbnailUrl,
-                      fit: BoxFit.cover,
-                      height: double.infinity,
-                      width: double.infinity,
-                    ),
-            ),
+            return Container(
+              color: Colors.black,
+              child: Center(
+                child: controller.value.isInitialized
+                    ? AspectRatio(
+                        aspectRatio: controller.value.aspectRatio,
+                        child: VideoPlayer(controller),
+                      )
+                    : Image.network(
+                        thumbnailUrl,
+                        fit: BoxFit.cover,
+                        height: double.infinity,
+                        width: double.infinity,
+                      ),
+              ),
           );
         },
       ),
-    );
+    ));
   }
 }
